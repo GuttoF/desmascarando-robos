@@ -13,6 +13,11 @@ Icon
 # Thumbnails
 ._*
 
+# Ignore all data
+*.csv
+*.feather
+*.db
+
 # Files that might appear in the root of a volume
 .DocumentRevisions-V100
 .fseventsd
