@@ -1,7 +1,9 @@
 import os
 import sys
 
-import duckdb
+import pandas as pd
+import pyarrow as pa
+import pyarrow.feather as feather
 from dotenv import load_dotenv
 
 # Load the environment variables
@@ -17,27 +19,25 @@ if path is None:
 df_train_path = path + "/data/raw/train.csv"
 df_test_path = path + "/data/raw/test.csv"
 df_lances_path = path + "/data/raw/lances.csv"
-db_path = path + "/data/interim/data.db"
 
-for paths in [df_train_path, df_test_path, df_lances_path]:
-    if not os.path.exists(paths):
-        print(f"The file located in {paths} does not exist.")
-        sys.exit(1)
+final_train_path = path + "/data/raw/train.feather"
+final_test_path = path + "/data/raw/test.feather"
+final_lances_path = path + "/data/raw/lances.feather"
 
-try:
-    # Read CSV
-    df_train = duckdb.read_csv(df_train_path)
-    df_test = duckdb.read_csv(df_test_path)
-    df_lances = duckdb.read_csv(df_lances_path)
+# Loading the data
+df_train = pd.read_csv(df_train_path)
+df_test = pd.read_csv(df_test_path)
+df_lances = pd.read_csv(df_lances_path)
 
-    # Create the connection
-    conn = duckdb.connect(db_path)
-    # Create the tables
-    conn.execute("CREATE TABLE lances AS SELECT * FROM df_lances")
-    conn.execute("CREATE TABLE train AS SELECT * FROM df_train")
-    conn.execute("CREATE TABLE test AS SELECT * FROM df_test")
-except Exception as e:
-    print(f"An error occurred while creating the tables: {e}")
+# Converting to Table
+table_train = pa.Table.from_pandas(df_train)
+table_test = pa.Table.from_pandas(df_test)
+table_lances = pa.Table.from_pandas(df_lances)
+
+# Saving the data
+if not os.path.exists(final_train_path):
+    feather.write_feather(table_train, final_train_path)
+    feather.write_feather(table_test, final_test_path)
+    feather.write_feather(table_lances, final_lances_path)
+else:
     sys.exit(1)
-finally:
-    conn.close()
