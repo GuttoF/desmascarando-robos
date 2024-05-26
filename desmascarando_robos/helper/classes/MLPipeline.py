@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from category_encoders import CatBoostEncoder
 from sklearn.metrics import (
     balanced_accuracy_score,
     f1_score,
@@ -51,6 +52,7 @@ class MLPipeline:
         self,
         log_list,
         ohe_list,
+        catboost_list=[],
         robust_scaler_list=[],
         min_max_scaler_list=[],
         standard_scaler_list=[],
@@ -61,6 +63,7 @@ class MLPipeline:
         Parameters:
         - log_list (list): A list of features to be log-transformed.
         - ohe_list (list): A list of features to be one-hot encoded.
+        - catboost_list (list, optional): A list of features to be encoded using CatBoostEncoder. Defaults to [].
         - robust_scaler_list (list, optional): A list of features to be scaled using RobustScaler. Defaults to [].
         - min_max_scaler_list (list, optional): A list of features to be scaled using MinMaxScaler. Defaults to [].
         - standard_scaler_list (list, optional): A list of features to be scaled using StandardScaler. Defaults to [].
@@ -70,6 +73,12 @@ class MLPipeline:
             logging.info("One-hot encoding features: %s", ohe_list)
             preprocessing_steps.append(
                 ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+            )
+
+        if catboost_list:
+            logging.info("CatBoost encoding features: %s", catboost_list)
+            preprocessing_steps.append(
+                ("catboost", CatBoostEncoder(cols=catboost_list))
             )
 
         if log_list:
