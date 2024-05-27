@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from sklearn.model_selection import train_test_split
 from ydata_profiling import ProfileReport, compare
 
 # Set up logging
@@ -16,10 +17,48 @@ class FeatureEngineering:
     Classe que realiza a engenharia de features.
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, seed: int = None):
+        self.seed = seed
 
-    def transform(self, data: pd.DataFrame) -> "FeatureEngineering":
+    @staticmethod
+    def mode(series):
+        return series.mode()[0] if not series.empty else None
+
+    def transform(self, dataframe: pd.DataFrame) -> "FeatureEngineering":
+        """
+        Feature Engineering
+
+        Parameters:
+        - dataframe (pandas.DataFrame): DataFrame a ser inserido
+
+        Returns:
+        - X_train, X_test, X_val, y_train, y_test, y_val(pandas.DataFrame): DataFrames
+        """
+        # Define X e y
+        X = dataframe.drop(columns=["resultado"])
+        y = dataframe["resultado"]
+
+        X_train_temp, X_test, y_train_temp, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=self.seed, stratify=y
+        )
+
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train_temp,
+            y_train_temp,
+            test_size=0.125,
+            random_state=self.seed,
+            stratify=y_train_temp,
+        )
+
+        dataframes = [X_train, X_test, X_val]
+
+        for dataframe in dataframes:
+            # Transformando
+            dataframe = self.perform_transformations(dataframe)
+
+        return X_train, X_test, X_val, y_train, y_test, y_val
+
+    def perform_transformations(self, data: pd.DataFrame) -> pd.DataFrame:
         # Resolvendo os problemas do alpha2 code em pais
         data["pais"] = data["pais"].replace(
             {
@@ -100,6 +139,100 @@ class FeatureEngineering:
             ),
         )
 
+        # Participante ativo
+        data["participante_ativo"] = data["contagem_participante"].apply(
+            lambda x: 1 if x > 20 else 0
+        )
+
+        # Leilão popular
+        data["leilao_popular"] = data["contagem_leilao"].apply(
+            lambda x: 1 if x > 50 else 0
+        )
+
+        data["periodo_dia"] = np.where(
+            data["hora"] < 6,
+            "madrugada",
+            np.where(
+                data["hora"] < 12,
+                "manha",
+                np.where(data["hora"] < 18, "tarde", "noite"),
+            ),
+        )
+
+        lances_por_leilao = (
+            data.groupby(["id_participante", "leilao"])
+            .size()
+            .reset_index(name="num_lances")
+        )
+        estatisticas_lances = (
+            lances_por_leilao.groupby("id_participante")["num_lances"]
+            .agg(["min", "max", "mean"])
+            .reset_index()
+        )
+        estatisticas_lances = estatisticas_lances.rename(
+            columns={
+                "min": "min_lances_leilao",
+                "max": "max_lances_leilao",
+                "mean": "mean_lances_leilao",
+            }
+        )
+
+        total_leiloes = (
+            data.groupby("id_participante")["leilao"]
+            .nunique()
+            .reset_index(name="total_leiloes")
+        )
+
+        estatisticas_tempo = (
+            data.groupby("id_participante")["tempo"]
+            .agg(["min", "max", "mean"])
+            .reset_index()
+        )
+        estatisticas_tempo = estatisticas_tempo.rename(
+            columns={"min": "min_tempo", "max": "max_tempo", "mean": "mean_tempo"}
+        )
+
+        mercadoria_stats = (
+            data.groupby("id_participante")["mercadoria"]
+            .agg(total_mercadorias="nunique", mercadoria_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        dispositivo_stats = (
+            data.groupby("id_participante")["dispositivo"]
+            .agg(dispositivo_mais_usado=self.mode, total_dispositivos="nunique")
+            .reset_index()
+        )
+
+        pais_stats = (
+            data.groupby("id_participante")["pais"]
+            .agg(total_paises="nunique", pais_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        ip_stats = (
+            data.groupby("id_participante")["ip"]
+            .agg(total_ips="nunique", ip_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        url_stats = (
+            data.groupby("id_participante")["url"]
+            .agg(total_urls="nunique", url_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        resultados = pd.merge(total_leiloes, estatisticas_lances, on="id_participante")
+        resultados = pd.merge(resultados, estatisticas_tempo, on="id_participante")
+        resultados = pd.merge(resultados, mercadoria_stats, on="id_participante")
+        resultados = pd.merge(resultados, dispositivo_stats, on="id_participante")
+        resultados = pd.merge(resultados, pais_stats, on="id_participante")
+        resultados = pd.merge(resultados, ip_stats, on="id_participante")
+        resultados = pd.merge(resultados, url_stats, on="id_participante")
+
+        # Unir as novas features calculadas ao dataset original
+        data = data.merge(resultados, on="id_participante", how="left")
+
         return data
 
     def report_na(self, data: pd.DataFrame) -> logging.info:
@@ -126,11 +259,11 @@ class FeatureEngineering:
 
     def get_profile_report(self, data: pd.DataFrame, path: str) -> None:
         """
-        Generate a profile report for the given dataframe.
+        Gera um report
 
         Parameters:
-        - data (pd.DataFrame): Input dataframe to generate the report for.
-        - path (str): Path to save the report.
+        - data (pd.DataFrame): Inserir um DataFrame para gerar o report
+        - path (str): Path para salvar arquivo
         """
         report = ProfileReport(
             data,
@@ -152,11 +285,11 @@ class FeatureEngineering:
         path: str,
     ) -> None:
         """
-        Generate and compare profile reports for training, testing, and validation datasets.
+        Cria um relatório de comparação entre dois DataFrames.
 
         Parameters:
-        - dataframe1, dataframe2 (pd.DataFrame): DataFrames to generate reports for.
-        - path (str): Path to save the comparison report.
+        - dataframe1, dataframe2 (pd.DataFrame): DataFrames para comparar.
+        - path (str): Path para salvar arquivo
         """
         dataframes = {"DF1": dataframe1, "DF2": dataframe2}
 
@@ -177,17 +310,17 @@ class FeatureEngineering:
 
     def save_data(self, data: pd.DataFrame, file_path: str) -> None:
         """
-        Save the given dataframe to a Parquet file.
+        Salva o dataframe em um arquivo parquet.
 
         Args:
-            data (pandas.DataFrame): The dataframe to be saved.
-            file_path (str): The path to the output file.
+            data (pandas.DataFrame): O dataframe a ser salvo.
+            file_path (str): O path do arquivo onde o dataframe será salvo.
 
         Returns:
             None
 
         Raises:
-            Exception: If there is an error while saving the data.
+            Exception: Se ocorrer um erro ao salvar o arquivo.
 
         """
         try:
