@@ -84,6 +84,14 @@ class FeatureEngineering:
         # Extrair segundo
         data["segundo"] = data["tempo"].dt.strftime("%S.%f").astype(float)
 
+        # Como essas medidas são de tempo irei aplicar transformações temporais
+        data["hora_sin"] = np.sin(2 * np.pi * data["hora"] / 24)
+        data["hora_cos"] = np.cos(2 * np.pi * data["hora"] / 24)
+        data["minuto_sin"] = np.sin(2 * np.pi * data["minuto"] / 60)
+        data["minuto_cos"] = np.cos(2 * np.pi * data["minuto"] / 60)
+        data["segundo_sin"] = np.sin(2 * np.pi * data["segundo"] / 60)
+        data["segundo_cos"] = np.cos(2 * np.pi * data["segundo"] / 60)
+
         # O endereço IP é uma sequência de números composta por 32 bits (no padrão IPv4).
         # Esse valor consiste em um conjunto de quatro sequências de 8 bits.
         # Cada uma é separada por um ponto e recebe o nome de octeto ou simplesmente byte,
@@ -232,6 +240,9 @@ class FeatureEngineering:
 
         # Unir as novas features calculadas ao dataset original
         data = data.merge(resultados, on="id_participante", how="left")
+
+        # Removendo colunas que não serão utilizadas
+        data = data.drop(columns=["id_participante", "id_lance", "tempo"])
 
         return data
 
