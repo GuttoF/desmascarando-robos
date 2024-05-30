@@ -71,7 +71,7 @@ class FeatureSelection(BaseEstimator, TransformerMixin):
         transformers = [
             ("log", FunctionTransformer(np.log1p), self.log_list),
             ("ohe", OneHotEncoder(), self.ohe_list),
-            ("catboost", CatBoostEncoder(), self.catboost_list
+            ("catboost", CatBoostEncoder(), self.catboost_list),
             ("std_scaler", StandardScaler(), self.standard_scaler_list),
             ("minmax_scaler", MinMaxScaler(), self.minmax_list),
             ("robust_scaler", RobustScaler(), self.robust_scaler_list),

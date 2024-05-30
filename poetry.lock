@@ -310,6 +310,25 @@ six = "*"
 widget = ["ipython", "ipywidgets (>=7.0,<9.0)", "traitlets"]
 
 [[package]]
+name = "category-encoders"
+version = "2.6.3"
+description = "A collection of sklearn transformers to encode categorical variables as numeric"
+optional = false
+python-versions = "*"
+files = [
+    {file = "category_encoders-2.6.3-py2.py3-none-any.whl", hash = "sha256:117775f1775e53a67c9e91842ac9100bc364cddc9f4058188796532bc5b11f1c"},
+    {file = "category_encoders-2.6.3.tar.gz", hash = "sha256:d9f14705ed4b536eaf9cfc81b76d67a50b2f16f8f3eda498c57d7da19655530c"},
+]
+
+[package.dependencies]
+numpy = ">=1.14.0"
+pandas = ">=1.0.5"
+patsy = ">=0.5.1"
+scikit-learn = ">=0.20.0"
+scipy = ">=1.0.0"
+statsmodels = ">=0.9.0"
+
+[[package]]
 name = "certifi"
 version = "2024.2.2"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -3920,4 +3939,4 @@ scipy = ">=1.0.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11, <3.13"
-content-hash = "85eff993aca0a6303cc22d88d151d1bdcb488d8f6bebc1a59d1724a98aafcd32"
+content-hash = "4e3f15dd02f6119fd976c06c993b0c2c199c64d659af1804a56db5f7afc2be3a"
