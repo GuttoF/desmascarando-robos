@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
+from category_encoders import CatBoostEncoder
 from sklearn.preprocessing import (
     FunctionTransformer,
     MinMaxScaler,
@@ -49,10 +50,17 @@ class FeatureSelection(BaseEstimator, TransformerMixin):
     """
 
     def __init__(
-        self, log_list, ohe_list, standard_scaler_list, minmax_list, robust_scaler_list
+        self,
+        log_list,
+        ohe_list,
+        catboost_list,
+        standard_scaler_list,
+        minmax_list,
+        robust_scaler_list,
     ):
         self.log_list = log_list
         self.ohe_list = ohe_list
+        self.catboost_list = catboost_list
         self.standard_scaler_list = standard_scaler_list
         self.minmax_list = minmax_list
         self.robust_scaler_list = robust_scaler_list
@@ -63,6 +71,7 @@ class FeatureSelection(BaseEstimator, TransformerMixin):
         transformers = [
             ("log", FunctionTransformer(np.log1p), self.log_list),
             ("ohe", OneHotEncoder(), self.ohe_list),
+            ("catboost", CatBoostEncoder(), self.catboost_list
             ("std_scaler", StandardScaler(), self.standard_scaler_list),
             ("minmax_scaler", MinMaxScaler(), self.minmax_list),
             ("robust_scaler", RobustScaler(), self.robust_scaler_list),

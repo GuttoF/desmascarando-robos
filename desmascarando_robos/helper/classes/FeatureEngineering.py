@@ -242,7 +242,7 @@ class FeatureEngineering:
         data = data.merge(resultados, on="id_participante", how="left")
 
         # Removendo colunas que não serão utilizadas
-        data = data.drop(columns=["id_participante", "id_lance", "tempo"])
+        data.drop(columns=["id_participante", "id_lance", "tempo"], inplace=True)
 
         return data
 

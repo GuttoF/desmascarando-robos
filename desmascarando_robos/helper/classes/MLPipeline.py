@@ -5,6 +5,7 @@ import pandas as pd
 from category_encoders import CatBoostEncoder
 from sklearn.metrics import (
     balanced_accuracy_score,
+    brier_score_loss,
     f1_score,
     log_loss,
     precision_score,
@@ -135,6 +136,7 @@ class MLPipeline:
                 "Balanced Accuracy": balanced_accuracy_score(y_test, y_pred),
                 "ROCAUC": roc_auc_score(y_test, y_probs),
                 "Log Loss": log_loss(y_test, y_probs),
+                "Brier Score": brier_score_loss(y_test, y_probs),
             }
             metrics.append(scores)
 
@@ -168,7 +170,8 @@ class MLPipelineCV(MLPipeline):
                 f1_list,
                 roc_auc_list,
                 log_loss_list,
-            ) = [], [], [], [], [], []
+                brier_score_list,
+            ) = [], [], [], [], [], [], []
 
             if verbose:
                 print(f"Folding model {i + 1}/{len(self.pipelines)} -> {model_name}")
@@ -211,6 +214,8 @@ class MLPipelineCV(MLPipeline):
                 "ROCAUC STD": np.std(roc_auc_list),
                 "Log Loss Mean": np.mean(log_loss_list),
                 "Log Loss STD": np.std(log_loss_list),
+                "Brier Score Mean": np.mean(brier_score_list),
+                "Brier Score STD": np.std(brier_score_list),
             }
             metrics.append(scores)
 
