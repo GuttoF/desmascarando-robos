@@ -24,7 +24,9 @@ class FeatureEngineering:
     def mode(series):
         return series.mode()[0] if not series.empty else None
 
-    def transform(self, dataframe: pd.DataFrame) -> "FeatureEngineering":
+    def transform(
+        self, dataframe: pd.DataFrame, perform: bool = True
+    ) -> "FeatureEngineering":
         """
         Feature Engineering
 
@@ -50,11 +52,12 @@ class FeatureEngineering:
             stratify=y_train_temp,
         )
 
-        dataframes = [X_train, X_test, X_val]
+        if perform:
+            dataframes = [X_train, X_test, X_val]
 
-        for dataframe in dataframes:
-            # Transformando
-            dataframe = self.perform_transformations(dataframe)
+            for dataframe in dataframes:
+                # Transformando
+                dataframe = self.perform_transformations(dataframe)
 
         return X_train, X_test, X_val, y_train, y_test, y_val
 
@@ -135,14 +138,14 @@ class FeatureEngineering:
         # Classe E: O primeiro octeto vai de 240 a 255 e o uso é reservado.
         data["ip_classe"] = np.where(
             data["primeiro_octeto_ip"] <= 127,
-            "Classe A",
+            "A",
             np.where(
                 data["primeiro_octeto_ip"] <= 191,
-                "Classe B",
+                "B",
                 np.where(
                     data["primeiro_octeto_ip"] <= 223,
-                    "Classe C",
-                    np.where(data["primeiro_octeto_ip"] <= 239, "Classe D", "Classe E"),
+                    "C",
+                    np.where(data["primeiro_octeto_ip"] <= 239, "D", "E"),
                 ),
             ),
         )
@@ -240,9 +243,6 @@ class FeatureEngineering:
 
         # Unir as novas features calculadas ao dataset original
         data = data.merge(resultados, on="id_participante", how="left")
-
-        # Removendo colunas que não serão utilizadas
-        data.drop(columns=["id_participante", "id_lance", "tempo"], inplace=True)
 
         return data
 

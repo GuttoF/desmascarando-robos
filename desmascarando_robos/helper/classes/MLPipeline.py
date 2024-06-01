@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from category_encoders import CatBoostEncoder
+from sklearn.compose import ColumnTransformer
 from sklearn.metrics import (
     balanced_accuracy_score,
     brier_score_loss,
@@ -18,31 +18,13 @@ from sklearn.preprocessing import (
     FunctionTransformer,
     MinMaxScaler,
     OneHotEncoder,
+    OrdinalEncoder,
     RobustScaler,
     StandardScaler,
 )
 
 
 class MLPipeline:
-    """
-    A class representing a machine learning pipeline.
-
-    Parameters:
-    - X (array-like): The input features.
-    - y (array-like): The target variable.
-    - models (list): A list of machine learning models.
-
-    Attributes:
-    - X (array-like): The input features.
-    - y (array-like): The target variable.
-    - models (list): A list of machine learning models.
-    - pipelines (list): A list of pipelines built for each model.
-
-    Methods:
-    - build_pipeline: Builds the machine learning pipelines.
-    - train_and_evaluate_models: Trains and evaluates the models in the pipelines.
-    """
-
     def __init__(self, X, y, models):
         self.X = X
         self.y = y
@@ -51,46 +33,53 @@ class MLPipeline:
 
     def build_pipeline(
         self,
-        log_list,
-        ohe_list,
-        catboost_list=[],
-        robust_scaler_list=[],
-        min_max_scaler_list=[],
-        standard_scaler_list=[],
+        log_list=None,
+        ohe_list=None,
+        ordinal_list=None,
+        robust_scaler_list=None,
+        min_max_scaler_list=None,
+        standard_scaler_list=None,
     ):
-        """
-        Builds the machine learning pipelines.
-
-        Parameters:
-        - log_list (list): A list of features to be log-transformed.
-        - ohe_list (list): A list of features to be one-hot encoded.
-        - catboost_list (list, optional): A list of features to be encoded using CatBoostEncoder. Defaults to [].
-        - robust_scaler_list (list, optional): A list of features to be scaled using RobustScaler. Defaults to [].
-        - min_max_scaler_list (list, optional): A list of features to be scaled using MinMaxScaler. Defaults to [].
-        - standard_scaler_list (list, optional): A list of features to be scaled using StandardScaler. Defaults to [].
-        """
-        preprocessing_steps = []
-        if ohe_list:
-            logging.info("One-hot encoding features: %s", ohe_list)
-            preprocessing_steps.append(
-                ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-            )
-
-        if catboost_list:
-            logging.info("CatBoost encoding features: %s", catboost_list)
-            preprocessing_steps.append(
-                ("catboost", CatBoostEncoder(cols=catboost_list))
-            )
+        log_list = log_list or []
+        ohe_list = ohe_list or []
+        ordinal_list = ordinal_list or []
+        robust_scaler_list = robust_scaler_list or []
+        min_max_scaler_list = min_max_scaler_list or []
+        standard_scaler_list = standard_scaler_list or []
+        transformers = []
 
         if log_list:
             logging.info("Log-transforming features: %s", log_list)
-            preprocessing_steps.append(("logtransform", FunctionTransformer(np.log1p)))
+            transformers.append(("log", FunctionTransformer(np.log1p), log_list))
+
+        if ohe_list:
+            logging.info("One-hot encoding features: %s", ohe_list)
+            transformers.append(
+                (
+                    "ohe",
+                    OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+                    ohe_list,
+                )
+            )
+
+        if ordinal_list:
+            logging.info("Ordinal encoding features: %s", ordinal_list)
+            transformers.append(
+                (
+                    "ordinal",
+                    OrdinalEncoder(
+                        handle_unknown="use_encoded_value", unknown_value=-1
+                    ),
+                    ordinal_list,
+                )
+            )
 
         scalers = {
-            "robustscaler": lambda: RobustScaler(with_centering=False),
-            "minmaxscaler": MinMaxScaler,
-            "standardscaler": StandardScaler,
+            "robustscaler": RobustScaler(with_centering=False),
+            "minmaxscaler": MinMaxScaler(),
+            "standardscaler": StandardScaler(),
         }
+
         for scaler_type, features in [
             ("robustscaler", robust_scaler_list),
             ("minmaxscaler", min_max_scaler_list),
@@ -98,29 +87,23 @@ class MLPipeline:
         ]:
             if features:
                 logging.info("Scaling features %s using %s", features, scaler_type)
-                preprocessing_steps.append((scaler_type, scalers[scaler_type]()))
+                transformers.append((scaler_type, scalers[scaler_type], features))
+
+        preprocessor = ColumnTransformer(transformers, remainder="passthrough")
 
         for model in self.models:
             self.pipelines.append(
-                Pipeline(steps=[*preprocessing_steps, ("model", model)])
+                Pipeline(steps=[("preprocessor", preprocessor), ("model", model)])
             )
 
     def train_and_evaluate_models(self, X_test, y_test, threshold=0.5):
-        """
-        Trains and evaluates the models in the pipelines.
-
-        Parameters:
-        - X_test (array-like): The test input features.
-        - y_test (array-like): The test target variable.
-        - threshold (float, optional): The classification threshold. Defaults to 0.5.
-
-        Returns:
-        - pandas.DataFrame: A DataFrame containing the evaluation metrics for each model.
-        """
         metrics = []
         for pipeline in self.pipelines:
             model_name = type(pipeline.named_steps["model"]).__name__
             logging.info(f"Training the {model_name}...")
+
+            # Check the shape of X and y before fitting
+            logging.info(f"Shape of X: {self.X.shape}, Shape of y: {self.y.shape}")
             pipeline.fit(self.X, self.y)
 
             logging.info(f"Evaluating the {model_name}...")
@@ -136,7 +119,9 @@ class MLPipeline:
                 "Balanced Accuracy": balanced_accuracy_score(y_test, y_pred),
                 "ROCAUC": roc_auc_score(y_test, y_probs),
                 "Log Loss": log_loss(y_test, y_probs),
-                "Brier Score": brier_score_loss(y_test, y_probs),
+                "Brier Score": brier_score_loss(
+                    y_test, y_probs
+                ),  # Calcular Brier score
             }
             metrics.append(scores)
 
@@ -148,16 +133,6 @@ class MLPipelineCV(MLPipeline):
         super().__init__(X, y, models)
 
     def train_and_evaluate_cv(self, threshold=0.5, verbose=True, kfold=5):
-        """Evaluates models using cross-validation and returns a dataframe with metrics.
-
-        Args:
-            threshold (float, optional): Threshold value for classification. Defaults to 0.5.
-            verbose (bool, optional): Whether to print progress information. Defaults to True.
-            kfold (int, optional): Number of folds for cross-validation. Defaults to 5.
-
-        Returns:
-            pandas.DataFrame: Dataframe with evaluation metrics for each model.
-        """
         metrics = []
         folds = StratifiedKFold(n_splits=kfold, shuffle=True, random_state=42)
 
@@ -170,7 +145,7 @@ class MLPipelineCV(MLPipeline):
                 f1_list,
                 roc_auc_list,
                 log_loss_list,
-                brier_score_list,
+                brier_score_list,  # Lista para armazenar os Brier scores
             ) = [], [], [], [], [], [], []
 
             if verbose:
@@ -190,15 +165,16 @@ class MLPipelineCV(MLPipeline):
                 y_probs = pipeline.predict_proba(X_val_fold)[:, 1]
                 y_pred = (y_probs >= threshold).astype(int)
 
-                # Collecting metrics
+                # Coletar métricas
                 acc_list.append(balanced_accuracy_score(y_val_fold, y_pred))
                 precision_list.append(precision_score(y_val_fold, y_pred))
                 recall_list.append(recall_score(y_val_fold, y_pred))
                 f1_list.append(f1_score(y_val_fold, y_pred))
                 roc_auc_list.append(roc_auc_score(y_val_fold, y_probs))
                 log_loss_list.append(log_loss(y_val_fold, y_probs))
+                brier_score_list.append(brier_score_loss(y_val_fold, y_probs))
 
-            # Aggregate results
+            # Agregar resultados
             scores = {
                 "Model": model_name,
                 "Threshold": threshold,
