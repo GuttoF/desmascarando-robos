@@ -26,6 +26,7 @@ pycountry = "^23.12.11"
 fuzzywuzzy = "^0.18.0"
 python-levenshtein = "^0.25.1"
 requests = "^2.32.2"
+category-encoders = "^2.6.3"
 
 
 [tool.poetry.group.dev.dependencies]
