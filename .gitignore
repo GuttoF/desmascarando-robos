@@ -8,8 +8,11 @@
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
 
+y_train.pkl
+y_test.pkl
+y_val.pkl
 # Thumbnails
 ._*
 
