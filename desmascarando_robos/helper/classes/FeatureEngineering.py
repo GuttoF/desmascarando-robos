@@ -236,9 +236,9 @@ class FeatureEngineering:
             .reset_index()
         )
 
-        ip_class_stats = (
-            data.groupby("id_participante")["ip_class"]
-            .agg(ip_class="nunique", ip_class_mais_frequente=self.mode)
+        ip_classe_stats = (
+            data.groupby("id_participante")["ip_classe"]
+            .agg(ip_classe="nunique", ip_classe_mais_frequente=self.mode)
             .reset_index()
         )
 
@@ -292,7 +292,7 @@ class FeatureEngineering:
         resultados = pd.merge(resultados, primeiro_octeto_stats, on="id_participante")
         resultados = pd.merge(resultados, segundo_octeto_stats, on="id_participante")
         resultados = pd.merge(resultados, horario_principal_stats, on="id_participante")
-        resultados = pd.merge(resultados, ip_class_stats, on="id_participante")
+        resultados = pd.merge(resultados, ip_classe_stats, on="id_participante")
         resultados = pd.merge(resultados, periodo_dia, on="id_participante")
         resultados = pd.merge(resultados, mercadoria_stats, on="id_participante")
         resultados = pd.merge(resultados, dispositivo_stats, on="id_participante")
