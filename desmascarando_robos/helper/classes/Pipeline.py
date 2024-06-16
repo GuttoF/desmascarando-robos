@@ -1,10 +1,13 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from category_encoders import HashingEncoder, OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import (
+    ConfusionMatrixDisplay,
     balanced_accuracy_score,
     brier_score_loss,
+    confusion_matrix,
     f1_score,
     log_loss,
     precision_score,
@@ -77,13 +80,31 @@ class MLPipeline:
         print(f"Evaluation completed for model {type(model).__name__}.")
         return scores
 
+    def find_best_threshold(self, model, X_test, y_test):
+        print(f"Finding best threshold for model {type(model).__name__}...")
+        y_prob = model.predict_proba(X_test)[:, 1]
+        thresholds = np.arange(0.4, 0.61, 0.01)
+        f1_scores = [f1_score(y_test, (y_prob >= t).astype(int)) for t in thresholds]
+        best_threshold = thresholds[np.argmax(f1_scores)]
+        print(
+            f"Best threshold for model {type(model).__name__} found: {best_threshold}"
+        )
+        return best_threshold
+
+    def plot_confusion_matrix(self, y_test, y_pred, model_name):
+        print(f"Plotting confusion matrix for model {model_name}...")
+        cm = confusion_matrix(y_test, y_pred)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp.plot(cmap=plt.cm.Blues)
+        plt.title(f"Confusion Matrix for {model_name}")
+        plt.show()
+
     def run(
         self,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_test: pd.DataFrame,
         y_test: pd.Series,
-        threshold: float = 0.5,
     ) -> pd.DataFrame:
         print("Starting run...")
         X_train_transformed, column_transformer = self.fit_transform(X_train)
@@ -93,9 +114,18 @@ class MLPipeline:
         for model in self.models:
             print(f"Training model {type(model).__name__}...")
             model.fit(X_train_transformed, y_train)
-            scores = self.evaluate_model(model, X_test_transformed, y_test, threshold)
+            best_threshold = self.find_best_threshold(model, X_test_transformed, y_test)
+            scores = self.evaluate_model(
+                model, X_test_transformed, y_test, best_threshold
+            )
+            scores["best_threshold"] = best_threshold
             self.results.append(scores)
             print(f"Model {type(model).__name__} trained and evaluated.")
+
+            # Generate and plot confusion matrix and ROC curve
+            y_prob = model.predict_proba(X_test_transformed)[:, 1]
+            y_pred = (y_prob >= best_threshold).astype(int)
+            self.plot_confusion_matrix(y_test, y_pred, type(model).__name__)
 
         print("Run completed.")
         return pd.DataFrame(self.results)
@@ -105,7 +135,6 @@ class MLPipeline:
         X: pd.DataFrame,
         y: pd.Series,
         n_splits: int = 5,
-        threshold: float = 0.5,
     ) -> pd.DataFrame:
         print("Starting cross-validation run...")
         skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
@@ -124,14 +153,23 @@ class MLPipeline:
             for model in self.models:
                 print(f"Training model {type(model).__name__} on fold {fold+1}...")
                 model.fit(X_train_transformed, y_train)
+                best_threshold = self.find_best_threshold(
+                    model, X_test_transformed, y_test
+                )
                 scores = self.evaluate_model(
-                    model, X_test_transformed, y_test, threshold
+                    model, X_test_transformed, y_test, best_threshold
                 )
                 scores["fold"] = fold + 1
+                scores["best_threshold"] = best_threshold
                 all_scores.append(scores)
                 print(
                     f"Model {type(model).__name__} trained and evaluated on fold {fold+1}."
                 )
+
+                # Generate and plot confusion matrix and ROC curve
+                y_prob = model.predict_proba(X_test_transformed)[:, 1]
+                y_pred = (y_prob >= best_threshold).astype(int)
+                self.plot_confusion_matrix(y_test, y_pred, type(model).__name__)
 
         print("Cross-validation run completed.")
         results_df = pd.DataFrame(all_scores)

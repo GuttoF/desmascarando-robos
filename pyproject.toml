@@ -27,6 +27,8 @@ fuzzywuzzy = "^0.18.0"
 python-levenshtein = "^0.25.1"
 requests = "^2.32.2"
 category-encoders = "^2.6.3"
+scikit-plot = "^0.3.7"
+optuna = "^3.6.1"
 
 
 [tool.poetry.group.dev.dependencies]

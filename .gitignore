@@ -23,6 +23,9 @@ y_val.pkl
 *.feather
 *.db
 
+# CatBoost files
+notebooks/catboost_info/
+
 # Files that might appear in the root of a volume
 .DocumentRevisions-V100
 .fseventsd
