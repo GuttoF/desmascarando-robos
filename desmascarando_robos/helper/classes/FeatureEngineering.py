@@ -104,26 +104,6 @@ class FeatureEngineering:
         data["primeiro_octeto_ip"] = data["ip"].apply(lambda x: int(x.split(".")[0]))
         data["segundo_octeto_ip"] = data["ip"].apply(lambda x: int(x.split(".")[1]))
 
-        # Contagem de participantes
-        contagem_participante = data["id_participante"].value_counts()
-        data["contagem_participante"] = data["id_participante"].map(
-            contagem_participante
-        )
-
-        # Contagem do leilão
-        contagem_leilao = data["leilao"].value_counts()
-        data["contagem_leilao"] = data["leilao"].map(contagem_leilao)
-
-        # Contagem conta de pagamento
-        contagem_conta_pagamento = data["conta_pagamento"].value_counts()
-        data["contagem_conta_pagamento"] = data["conta_pagamento"].map(
-            contagem_conta_pagamento
-        )
-
-        # Frequência de dispositivos
-        frequencia_dispositivo = data["dispositivo"].value_counts()
-        data["frequencia_dispositivo"] = data["dispositivo"].map(frequencia_dispositivo)
-
         # Horário principal
         data["horario_principal"] = data["hora"].apply(
             lambda x: 1 if 9 <= x < 18 else 0
@@ -148,16 +128,6 @@ class FeatureEngineering:
                     np.where(data["primeiro_octeto_ip"] <= 239, "D", "E"),
                 ),
             ),
-        )
-
-        # Participante ativo
-        data["participante_ativo"] = data["contagem_participante"].apply(
-            lambda x: 1 if x > 20 else 0
-        )
-
-        # Leilão popular
-        data["leilao_popular"] = data["contagem_leilao"].apply(
-            lambda x: 1 if x > 50 else 0
         )
 
         data["periodo_dia"] = np.where(
@@ -203,6 +173,81 @@ class FeatureEngineering:
             columns={"min": "min_tempo", "max": "max_tempo", "mean": "mean_tempo"}
         )
 
+        estatisticas_hora_cos = (
+            data.groupby("id_participante")["hora_cos"]
+            .agg(["min", "max", "mean"])
+            .reset_index()
+        )
+        estatisticas_hora_cos = estatisticas_hora_cos.rename(
+            columns={"min": "min_hora_cos", "max": "max_hora_cos", "mean": "mean_hora_cos"}
+        )
+
+        estatisticas_minuto_sin = (
+            data.groupby("id_participante")["minuto_sin"]
+            .agg(["min", "max", "mean"])
+            .reset_index()
+        )
+        estatisticas_minuto_sin = estatisticas_minuto_sin.rename(
+            columns={"min": "min_minuto_sin", "max": "max_minuto_sin", "mean": "mean_minuto_sin"}
+        )
+
+        estatisticas_minuto_cos = (
+            data.groupby("id_participante")["minuto_cos"]
+            .agg(["min", "max", "mean"])
+            .reset_index()
+        )
+        estatisticas_minuto_cos = estatisticas_minuto_cos.rename(
+            columns={"min": "min_minuto_cos", "max": "max_minuto_cos", "mean": "mean_minuto_cos"}
+        )
+
+        estatisticas_segundo_sin = (
+            data.groupby("id_participante")["segundo_sin"]
+            .agg(["min", "max", "mean"])
+            .reset_index()
+        )
+        estatisticas_segundo_sin = estatisticas_segundo_sin.rename(
+            columns={"min": "min_segundo_sin", "max": "max_segundo_sin", "mean": "mean_segundo_sin"}
+        )
+
+        estatisticas_segundo_cos = (
+            data.groupby("id_participante")["segundo_cos"]
+            .agg(["min", "max", "mean"])
+            .reset_index()
+        )
+        estatisticas_segundo_cos = estatisticas_segundo_cos.rename(
+            columns={"min": "min_segundo_cos", "max": "max_segundo_cos", "mean": "mean_segundo_cos"}
+        )
+
+        primeiro_octeto_stats = (
+            data.groupby("id_participante")["primeiro_octeto_ip"]
+            .agg(primeiro_octeto="nunique", primeiro_octeto_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        segundo_octeto_stats = (
+            data.groupby("id_participante")["segundo_octeto_ip"]
+            .agg(segundo_octeto="nunique", segundo_octeto_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        horario_principal_stats = (
+            data.groupby("id_participante")["horario_principal"]
+            .agg(horario_principal="nunique", horario_principal_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        ip_class_stats = (
+            data.groupby("id_participante")["ip_class"]
+            .agg(ip_class="nunique", ip_class_mais_frequente=self.mode)
+            .reset_index()
+        )
+
+        periodo_dia = (
+            data.groupby("id_participante")["periodo_dia"]
+            .agg(periodo_dia="nunique", periodo_dia_mais_frequente=self.mode)
+            .reset_index()
+        )
+    
         mercadoria_stats = (
             data.groupby("id_participante")["mercadoria"]
             .agg(total_mercadorias="nunique", mercadoria_mais_frequente=self.mode)
@@ -233,8 +278,22 @@ class FeatureEngineering:
             .reset_index()
         )
 
+        cols_to_drop = ['dia', 'hora', 'minuto', 'segundo']
+        data = data.drop(columns=cols_to_drop)
+
+
         resultados = pd.merge(total_leiloes, estatisticas_lances, on="id_participante")
         resultados = pd.merge(resultados, estatisticas_tempo, on="id_participante")
+        resultados = pd.merge(resultados, estatisticas_hora_cos, on="id_participante")
+        resultados = pd.merge(resultados, estatisticas_minuto_sin, on="id_participante")
+        resultados = pd.merge(resultados, estatisticas_minuto_cos, on="id_participante")
+        resultados = pd.merge(resultados, estatisticas_segundo_sin, on="id_participante")
+        resultados = pd.merge(resultados, estatisticas_segundo_cos, on="id_participante")
+        resultados = pd.merge(resultados, primeiro_octeto_stats, on="id_participante")
+        resultados = pd.merge(resultados, segundo_octeto_stats, on="id_participante")
+        resultados = pd.merge(resultados, horario_principal_stats, on="id_participante")
+        resultados = pd.merge(resultados, ip_class_stats, on="id_participante")
+        resultados = pd.merge(resultados, periodo_dia, on="id_participante")
         resultados = pd.merge(resultados, mercadoria_stats, on="id_participante")
         resultados = pd.merge(resultados, dispositivo_stats, on="id_participante")
         resultados = pd.merge(resultados, pais_stats, on="id_participante")
